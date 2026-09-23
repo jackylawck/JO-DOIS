@@ -1,0 +1,311 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "triggers": {
+    "當提交新的回應時": {
+      "type": "OpenApiConnectionWebhook",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_microsoftforms",
+          "operationId": "WebhookFormResponse",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_microsoftforms"
+        },
+        "parameters": {
+          "formId": "HRF-031_FORM_ID_PLACEHOLDER"
+        }
+      }
+    }
+  },
+  "actions": {
+    "取得回應詳細資料": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_microsoftforms",
+          "operationId": "GetFormResponseById",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_microsoftforms"
+        },
+        "parameters": {
+          "formId": "HRF-031_FORM_ID_PLACEHOLDER",
+          "responseId": "@triggerOutputs()?['body/resourceData/responseId']"
+        }
+      },
+      "runAfter": {}
+    },
+    "建立項目": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_sharepointonline",
+          "operationId": "PostItem",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+        },
+        "parameters": {
+          "dataset": "https://jumboorient.sharepoint.com/sites/hr",
+          "table": "JO_Gift_Declarations",
+          "item/Title": "@concat('DEC-', utcNow('yyyyMMdd'), '-', triggerOutputs()?['body/resourceData/responseId'])",
+          "item/DeclarantName": "@outputs('取得回應詳細資料')?['body/r_declarant_name']",
+          "item/DeclarantEmail": "@outputs('取得回應詳細資料')?['body/responder']",
+          "item/Department": "@outputs('取得回應詳細資料')?['body/r_department']",
+          "item/Status": {
+            "Value": "待HR初審"
+          },
+          "item/DeclarantAckStatus": {
+            "Value": "待申報人確認"
+          }
+        }
+      },
+      "runAfter": {
+        "取得回應詳細資料": [
+          "Succeeded"
+        ]
+      }
+    },
+    "剖析_JSON": {
+      "type": "ParseJson",
+      "inputs": {
+        "content": "@outputs('取得回應詳細資料')?['body/r_attachments']",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "link": { "type": "string" },
+              "id": { "type": "string" }
+            },
+            "required": ["name", "link"]
+          }
+        }
+      },
+      "runAfter": {
+        "建立項目": [
+          "Succeeded"
+        ]
+      }
+    },
+    "依序處理附件": {
+      "type": "Foreach",
+      "foreach": "@body('剖析_JSON')",
+      "actions": {
+        "使用路徑取得檔案內容": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_onedriveforbusiness",
+              "operationId": "GetFileContentByPath",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_onedriveforbusiness"
+            },
+            "parameters": {
+              "path": "@concat('/Apps/Microsoft Forms/接受饋贈利益於賭博活動中獲得利益申報表 (HRF-031)/問題/', items('依序處理附件')?['name'])"
+            }
+          }
+        },
+        "新增附件": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "AddAttachment",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://jumboorient.sharepoint.com/sites/hr",
+              "table": "JO_Gift_Declarations",
+              "id": "@outputs('建立項目')?['body/ID']",
+              "name": "@items('依序處理附件')?['name']",
+              "fileContent": "@body('使用路徑取得檔案內容')"
+            }
+          },
+          "runAfter": {
+            "使用路徑取得檔案內容": [
+              "Succeeded"
+            ]
+          }
+        }
+      },
+      "runAfter": {
+        "剖析_JSON": [
+          "Succeeded"
+        ]
+      }
+    },
+    "啟動並等候核准_乙部HR初審": {
+      "type": "OpenApiConnectionWebhook",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_approvals",
+          "operationId": "StartAndWaitForAnApproval",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_approvals"
+        },
+        "parameters": {
+          "approvalType": "ApproveReject",
+          "title": "@concat('【乙部初審】', outputs('取得回應詳細資料')?['body/r_declarant_name'], ' - ', outputs('取得回應詳細資料')?['body/r_department'])",
+          "assignedTo": "hrd@jumboorient.com.hk",
+          "itemLink": "@outputs('建立項目')?['body/{Link}']"
+        }
+      },
+      "runAfter": {
+        "依序處理附件": [
+          "Succeeded"
+        ]
+      }
+    },
+    "條件_判斷HR結果": {
+      "type": "If",
+      "expression": {
+        "equals": [
+          "@outputs('啟動並等候核准_乙部HR初審')?['body/outcome']",
+          "Approve"
+        ]
+      },
+      "actions": {
+        "更新項目_待MD批核": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "PatchItem",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://jumboorient.sharepoint.com/sites/hr",
+              "table": "JO_Gift_Declarations",
+              "id": "@outputs('建立項目')?['body/ID']",
+              "item/HRReviewResult": "Approve",
+              "item/HRReviewComments": "@first(outputs('啟動並等候核准_乙部HR初審')?['body/responses'])?['comments']",
+              "item/Status": {
+                "Value": "待董事經理批核"
+              }
+            }
+          }
+        },
+        "啟動並等候核准_丙部MD批示": {
+          "type": "OpenApiConnectionWebhook",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_approvals",
+              "operationId": "StartAndWaitForAnApproval",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_approvals"
+            },
+            "parameters": {
+              "approvalType": "CustomResponse",
+              "responseOptions": [
+                "由申報人保留",
+                "存放在辦公室作陳列或紀念之用",
+                "與公司其他職員共同分享",
+                "在職員活動中作抽獎之用",
+                "送贈慈善機構",
+                "退回提供饋贈/利益者",
+                "其他 (請看備註)"
+              ],
+              "title": "@concat('【丙部批示】', outputs('取得回應詳細資料')?['body/r_declarant_name'])",
+              "assignedTo": "jackylaw@jumboorient.com.hk",
+              "itemLink": "@outputs('建立項目')?['body/{Link}']"
+            }
+          },
+          "runAfter": {
+            "更新項目_待MD批核": [
+              "Succeeded"
+            ]
+          }
+        },
+        "更新項目_待HR執行處置": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "PatchItem",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://jumboorient.sharepoint.com/sites/hr",
+              "table": "JO_Gift_Declarations",
+              "id": "@outputs('建立項目')?['body/ID']",
+              "item/MDDecision": "@outputs('啟動並等候核准_丙部MD批示')?['body/outcome']",
+              "item/MDComments": "@first(outputs('啟動並等候核准_丙部MD批示')?['body/responses'])?['comments']",
+              "item/Status": {
+                "Value": "待HR執行處置"
+              }
+            }
+          },
+          "runAfter": {
+            "啟動並等候核准_丙部MD批示": [
+              "Succeeded"
+            ]
+          }
+        },
+        "傳送通知電郵給HR執行處置": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_office365",
+              "operationId": "SendEmailV2",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+            },
+            "parameters": {
+              "emailMessage/To": "hrd@jumboorient.com.hk",
+              "emailMessage/Subject": "【請執行處置】董事經理已批示利益申報案卷",
+              "emailMessage/Body": "<p>董事經理已完成批核，請按指示執行並於清單更新記錄後改為已完成歸檔。</p>"
+            }
+          },
+          "runAfter": {
+            "更新項目_待HR執行處置": [
+              "Succeeded"
+            ]
+          }
+        }
+      },
+      "else": {
+        "actions": {
+          "更新項目_HR退回": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "PatchItem",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://jumboorient.sharepoint.com/sites/hr",
+                "table": "JO_Gift_Declarations",
+                "id": "@outputs('建立項目')?['body/ID']",
+                "item/HRReviewResult": "Reject",
+                "item/HRReviewComments": "@first(outputs('啟動並等候核准_乙部HR初審')?['body/responses'])?['comments']",
+                "item/Status": {
+                  "Value": "HR退回申報"
+                }
+              }
+            }
+          },
+          "傳送退回電郵給員工": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_office365",
+                "operationId": "SendEmailV2",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+              },
+              "parameters": {
+                "emailMessage/To": "@outputs('取得回應詳細資料')?['body/responder']",
+                "emailMessage/Subject": "【利益申報退回通知】閣下提交之申報未能通過初審",
+                "emailMessage/Body": "<p>申報未能通過初審，請依照 HR 備註補正資料。</p>"
+              }
+            },
+            "runAfter": {
+              "更新項目_HR退回": [
+                "Succeeded"
+              ]
+            }
+          }
+        }
+      },
+      "runAfter": {
+        "啟動並等候核准_乙部HR初審": [
+          "Succeeded"
+        ]
+      }
+    }
+  }
+}
