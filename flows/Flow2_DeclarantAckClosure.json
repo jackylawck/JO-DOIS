@@ -1,0 +1,71 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "triggers": {
+    "當建立或修改項目時": {
+      "type": "OpenApiConnectionWebhook",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_sharepointonline",
+          "operationId": "HttpRequestWebhook",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+        },
+        "parameters": {
+          "dataset": "https://jumboorient.sharepoint.com/sites/hr",
+          "table": "JO_Gift_Declarations"
+        }
+      },
+      "conditions": [
+        {
+          "expression": "@and(equals(triggerOutputs()?['body/OData__x6d41__x7a0b__x72c0__x614b/Value'], '已完成歸檔'), not(equals(triggerOutputs()?['body/OData__x7533__x5831__x4eba__x78ba/Value'], '申報人已確認')))"
+        }
+      ]
+    }
+  },
+  "actions": {
+    "啟動並等候核准_申報人閉環確認": {
+      "type": "OpenApiConnectionWebhook",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_approvals",
+          "operationId": "StartAndWaitForAnApproval",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_approvals"
+        },
+        "parameters": {
+          "approvalType": "CustomResponse",
+          "responseOptions": [
+            "本人確認上述安排"
+          ],
+          "title": "@concat('【處置確認】利益申報最終處置安排知悉確認 (單號: ', triggerOutputs()?['body/Title'], ')')",
+          "assignedTo": "@triggerOutputs()?['body/DeclarantEmail']",
+          "itemLink": "@triggerOutputs()?['body/{Link}']"
+        }
+      }
+    },
+    "更新項目_寫入確認記錄": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_sharepointonline",
+          "operationId": "PatchItem",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+        },
+        "parameters": {
+          "dataset": "https://jumboorient.sharepoint.com/sites/hr",
+          "table": "JO_Gift_Declarations",
+          "id": "@triggerOutputs()?['body/ID']",
+          "item/DeclarantAckStatus": {
+            "Value": "申報人已確認"
+          },
+          "item/DeclarantAckDate": "@convertTimeZone(utcNow(), 'UTC', 'China Standard Time')"
+        }
+      },
+      "runAfter": {
+        "啟動並等候核准_申報人閉環確認": [
+          "Succeeded"
+        ]
+      }
+    }
+  }
+}
