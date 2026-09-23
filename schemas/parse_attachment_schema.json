@@ -1,0 +1,35 @@
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MicrosoftFormsAttachmentSchema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "上傳檔案之原始檔案名稱"
+      },
+      "link": {
+        "type": "string",
+        "description": "OneDrive 檔案存取連結"
+      },
+      "id": {
+        "type": "string",
+        "description": "檔案唯一識別碼"
+      },
+      "type": {
+        "type": "string",
+        "description": "檔案類型"
+      },
+      "size": {
+        "type": "integer",
+        "description": "檔案大小 (bytes)"
+      }
+    },
+    "required": [
+      "name",
+      "link"
+    ]
+  }
+}
