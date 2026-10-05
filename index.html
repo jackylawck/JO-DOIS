@@ -11,13 +11,16 @@
   <title>東淦利益申報系統 JO-DOIS | 東淦工程有限公司 (Jumbo Orient Contracting Limited)</title>
   <meta name="description" content="東淦利益申報系統 (JO-DOIS Form HRF-031) 是東淦工程有限公司（Jumbo Orient Contracting Limited）自主研發之企業級無紙化利益衝突與反貪管治引擎。貫徹香港法例第201章《防止賄賂條例》(POBO) 內控規範，具備全鏈路審計追蹤與雙向閉環存證。">
   <meta name="keywords" content="東淦工程, 東淦工程有限公司, Jumbo Orient, Jumbo Orient Contracting Limited, JO-DOIS, 利益申報, 企業管治, POBO Cap 201, 防貪政策, Power Automate, SharePoint Online, 數位轉型, ESG, 合規審計">
-  <meta name="author" content="東淦工程有限公司 Jumbo Orient Contracting Limited">
   <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://www.jumboorient.com.hk/">
+  <link rel="canonical" href="https://jackylawck.github.io/JO-DOIS/">
+
+  <!-- 👤 系統設計師與作者資訊（隱藏於代碼，不呈現在前端畫面） -->
+  <meta name="author" content="羅子淇 (Jacky Law), F.I.H.R.M. (HK), FHKIoD, MHKCS">
+  <meta property="article:author" content="羅子淇 (Jacky Law)">
 
   <!-- 🌐 Open Graph / LinkedIn / Facebook 社交卡片 -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://www.jumboorient.com.hk/">
+  <meta property="og:url" content="https://jackylawck.github.io/JO-DOIS/">
   <meta property="og:title" content="東淦利益申報系統 (JO-DOIS) | 東淦工程有限公司 智慧內控實踐">
   <meta property="og:description" content="零額外授權成本、全鏈路審計追蹤。東淦工程以 M365 原生生態構建企業利益衝突與反貪治理閉環，推動營造業合規新標竿。">
   <meta property="og:image" content="https://www.jumboorient.com.hk/assets/jumbo-orient-og-banner.png">
@@ -58,7 +61,7 @@
   <meta http-equiv="Permissions-Policy" content="accelerometer=(), gyroscope=(), microphone=(), camera=(), geolocation=(), payment=()">
   <meta name="referrer" content="strict-origin-when-cross-origin">
 
-  <!-- 🏷️ Schema.org 結構化資料 (企業法人與軟體治理雙定義) -->
+  <!-- 🏷️ Schema.org 結構化資料 (後端精準關聯：企業法人 + 作者 Person) -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -78,16 +81,29 @@
         }
       },
       {
+        "@type": "Person",
+        "@id": "https://github.com/jackylawck/#author",
+        "name": "羅子淇 (Jacky Law)",
+        "jobTitle": "Senior HR Manager & Corporate Governance Advisor",
+        "worksFor": {
+          "@id": "https://www.jumboorient.com.hk/#organization"
+        },
+        "url": "https://github.com/jackylawck"
+      },
+      {
         "@type": "SoftwareApplication",
-        "@id": "https://www.jumboorient.com.hk/#jodois",
+        "@id": "https://jackylawck.github.io/JO-DOIS/#software",
         "name": "JO-DOIS: 東淦利益申報系統",
-        "alternateName": "Jumbo Orient Declaration of Interests System",
+        "alternateName": "Jumbo Orient Declaration of Interests System (Form HRF-031)",
         "applicationCategory": "BusinessApplication",
         "operatingSystem": "Microsoft 365, Web Browser",
         "author": {
+          "@id": "https://github.com/jackylawck/#author"
+        },
+        "publisher": {
           "@id": "https://www.jumboorient.com.hk/#organization"
         },
-        "description": "企業級零授權成本利益衝突與饋贈申報全鏈路治理系統，對標香港法例第201章《防止賄賂條例》。"
+        "description": "企業級零額外授權利益衝突與饋贈申報全鏈路治理系統，落實香港法例第201章《防止賄賂條例》合規閉環。"
       }
     ]
   }
@@ -220,7 +236,7 @@
     /* 流程圖視覺化樣式 */
     .flow-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 16px;
       margin: 20px 0;
     }
